@@ -28,7 +28,7 @@ import rdpy.security.pyDes as pyDes
 import rdpy.security.rc4 as rc4
 from rdpy.security.rsa_wrapper import random
 from rdpy.core.type import CompositeType, CallableValue, String, UInt8, UInt16Le, UInt24Le, UInt32Le, sizeof, Stream
-from rdpy.core import filetimes, error
+from rdpy.core import filetimes, error, type
 
 class MajorVersion(object):
     """
@@ -374,7 +374,7 @@ def Z(m):
     """
     @summary: fill m zero in string
     @param m: {int} size of string
-    @return: \x00 * m 
+    @return: \x00 * m
     """
     return "\x00" * m
 
@@ -482,7 +482,7 @@ def MIC(ExportedSessionKey, negotiateMessage, challengeMessage, authenticateMess
     @param challengeMessage: {ChallengeMessage}
     @param authenticateMessage: {AuthenticateMessage}
     @return: {str} signature
-    @see: https://msdn.microsoft.com/en-us/library/cc236676.aspx 
+    @see: https://msdn.microsoft.com/en-us/library/cc236676.aspx
     """
     s = Stream()
     s.writeType((negotiateMessage, challengeMessage, authenticateMessage))
@@ -521,8 +521,8 @@ class NTLMv2(sspi.IAuthenticationProtocol):
                                         Negotiate.NTLMSSP_REQUEST_TARGET |
                                         Negotiate.NTLMSSP_NEGOTIATE_UNICODE)
         return self._negotiateMessage
-    
-    def getAuthenticateMessage(self, s):
+
+    def getAuthenticateMessage(self, challenge, authMessage):
         """
         @summary: Client last handshake message
         @param s: {Stream} challenge message stream
@@ -530,8 +530,8 @@ class NTLMv2(sspi.IAuthenticationProtocol):
         @see: https://msdn.microsoft.com/en-us/library/cc236676.aspx
         """
         self._challengeMessage = ChallengeMessage()
-        s.readType(self._challengeMessage)
-        
+        challenge.readType(self._challengeMessage)
+
         ServerChallenge = self._challengeMessage.ServerChallenge.value
         ClientChallenge = random(64)
         
@@ -540,7 +540,7 @@ class NTLMv2(sspi.IAuthenticationProtocol):
         infos = self._challengeMessage.getTargetInfoAsAvPairArray()
         if infos.has_key(AvId.MsvAvTimestamp):
             Timestamp = infos[AvId.MsvAvTimestamp]
-            computeMIC = True
+            computeMIC = False
         else:
             Timestamp = CurrentFileTimes()
     
@@ -554,8 +554,10 @@ class NTLMv2(sspi.IAuthenticationProtocol):
         if self._challengeMessage.NegotiateFlags.value & Negotiate.NTLMSSP_NEGOTIATE_UNICODE:
             self._enableUnicode = True
             domain, user = UNICODE(domain), UNICODE(user)
-        self._authenticateMessage = createAuthenticationMessage(self._challengeMessage.NegotiateFlags.value, domain, user, NtChallengeResponse, LmChallengeResponse, EncryptedRandomSessionKey, "")
-        
+        self._authenticateMessage = AuthenticateMessage()
+        ss = Stream(type.String(authMessage))
+        self._authenticateMessage.read(ss)
+
         if computeMIC:
             self._authenticateMessage.MIC.value = MIC(ExportedSessionKey, self._negotiateMessage, self._challengeMessage, self._authenticateMessage)
         else:

@@ -386,7 +386,7 @@ class RDPExtendedInfo(CompositeType):
 class SecLayer(LayerAutomata, IStreamSender, tpkt.IFastPathListener, tpkt.IFastPathSender, mcs.IGCCConfig):
     """
     @summary: Standard RDP security layer
-    This layer is Transparent as possible for upper layer 
+    This layer is Transparent as possible for upper layer
     """
     def __init__(self, presentation):
         """
@@ -432,7 +432,7 @@ class SecLayer(LayerAutomata, IStreamSender, tpkt.IFastPathListener, tpkt.IFastP
         #if update is needed
         if self._nbDecryptedPacket == 4096:
             log.debug("update decrypt key")
-            self._currentDecrytKey = updateKey( self._initialDecrytKey, self._currentDecrytKey, 
+            self._currentDecrytKey = updateKey( self._initialDecrytKey, self._currentDecrytKey,
                                                 self.getGCCServerSettings().SC_SECURITY.encryptionMethod.value)
             self._decryptRc4 = rc4.RC4Key(self._currentDecrytKey)
             self._nbDecryptedPacket = 0
@@ -525,7 +525,14 @@ class SecLayer(LayerAutomata, IStreamSender, tpkt.IFastPathListener, tpkt.IFastP
         if flag & SecurityFlag.SEC_ENCRYPT:
             data = self.writeEncryptedPayload(data, flag & SecurityFlag.SEC_SECURE_CHECKSUM)
         self._transport.send((UInt16Le(flag), UInt16Le(), data))
-        
+
+    def RegisterCSSP(self,*params):
+        try:
+            self._fastPathPresentation.RegisterCSSP(*params) #using it to register CSSP on the pdu layer  
+            log.info('Ready For RDP connections')
+        except AttributeError:
+            pass
+
     def recvFastPath(self, secFlag, fastPathS):
         """
         @summary: Call when fast path packet is received
@@ -626,7 +633,7 @@ class Client(SecLayer):
         
     def sendClientRandom(self):
         """
-        @summary: generate and send client random and init session keys 
+        @summary: generate and send client random and init session keys
         """
         #generate client random
         clientRandom = rsa.random(256)
@@ -715,9 +722,9 @@ class Server(SecLayer):
         message = ClientSecurityExchangePDU()
         s.readType(message)
         clientRandom = rsa.decrypt(message.encryptedClientRandom.value[::-1], self._rsaPrivateKey)[::-1]
-        
-        self._macKey, self._initialEncryptKey, self._initialDecrytKey = generateKeys(   clientRandom, 
-                                                                                        self.getGCCServerSettings().SC_SECURITY.serverRandom.value, 
+
+        self._macKey, self._initialEncryptKey, self._initialDecrytKey = generateKeys(   clientRandom,
+                                                                                        self.getGCCServerSettings().SC_SECURITY.serverRandom.value,
                                                                                         self.getGCCServerSettings().SC_SECURITY.encryptionMethod.value)
         #initialize keys
         self._currentDecrytKey = self._initialDecrytKey

@@ -33,6 +33,9 @@ from OpenSSL import crypto
 from rdpy.security import x509
 from rdpy.core import error
 
+import ntlm
+from rdpy.core import type
+
 class NegoToken(univ.Sequence):
     componentType = namedtype.NamedTypes(
         namedtype.NamedType('negoToken', univ.OctetString().subtype(explicitTag=tag.Tag(tag.tagClassContext, tag.tagFormatConstructed, 0))),
@@ -115,6 +118,40 @@ class OpenSSLRSAPublicKey(univ.Sequence):
         namedtype.NamedType('publicExponent', univ.Integer()),
         )
 
+def encodeDERTRequestOriginal(negoTypes = [], authInfo = None, pubKeyAuth = None):
+    """
+    @summary: create TSRequest from list of Type
+    @param negoTypes: {list(Type)}
+    @param authInfo: {str} authentication info TSCredentials encrypted with authentication protocol
+    @param pubKeyAuth: {str} public key encrypted with authentication protocol
+    @return: {str} TRequest der encoded
+    """
+    negoData = NegoData().subtype(explicitTag=tag.Tag(tag.tagClassContext, tag.tagFormatConstructed, 1))
+
+    #fill nego data tokens
+    i = 0
+    for negoType in negoTypes:
+        s = Stream()
+        s.writeType(negoType)
+        negoToken = NegoToken()
+        negoToken.setComponentByPosition(0, s.getvalue())
+        negoData.setComponentByPosition(i, negoToken)
+        i += 1
+
+    request = TSRequest()
+    request.setComponentByName("version", univ.Integer(2).subtype(explicitTag=tag.Tag(tag.tagClassContext, tag.tagFormatConstructed, 0)))
+
+    if i > 0:
+        request.setComponentByName("negoTokens", negoData)
+
+    if not authInfo is None:
+        request.setComponentByName("authInfo", univ.OctetString(authInfo).subtype(explicitTag=tag.Tag(tag.tagClassContext, tag.tagFormatConstructed, 2)))
+
+    if not pubKeyAuth is None:
+        request.setComponentByName("pubKeyAuth", univ.OctetString(pubKeyAuth).subtype(explicitTag=tag.Tag(tag.tagClassContext, tag.tagFormatConstructed, 3)))
+
+    return der_encoder.encode(request)
+
 def encodeDERTRequest(negoTypes = [], authInfo = None, pubKeyAuth = None):
     """
     @summary: create TSRequest from list of Type
@@ -128,10 +165,8 @@ def encodeDERTRequest(negoTypes = [], authInfo = None, pubKeyAuth = None):
     #fill nego data tokens
     i = 0
     for negoType in negoTypes:
-        s = Stream()
-        s.writeType(negoType)
         negoToken = NegoToken()
-        negoToken.setComponentByPosition(0, s.getvalue())
+        negoToken.setComponentByPosition(0, negoType)
         negoData.setComponentByPosition(i, negoToken)
         i += 1
         
@@ -151,7 +186,7 @@ def encodeDERTRequest(negoTypes = [], authInfo = None, pubKeyAuth = None):
 
 def decodeDERTRequest(s):
     """
-    @summary: Decode the stream as 
+    @summary: Decode the stream as
     @param s: {str}
     """
     return der_decoder.decode(s, asn1Spec=TSRequest())[0]
@@ -180,7 +215,7 @@ class CSSP(protocol.Protocol):
     @summary: Handle CSSP connection
     Proxy class for authentication
     """
-    def __init__(self, layer, authenticationProtocol):
+    def __init__(self, listener, layer, authenticationProtocol):
         """
         @param layer: {type.Layer.RawLayer}
         @param authenticationProtocol: {sspi.IAuthenticationProtocol}
@@ -191,7 +226,8 @@ class CSSP(protocol.Protocol):
         self._interface = None
         #function call at the end of nego
         self._callback = None
-        
+        self._listener=listener
+
     def setFactory(self, factory):
         """
         @summary: Call by RawLayer Factory
@@ -236,56 +272,3 @@ class CSSP(protocol.Protocol):
         """
         self.transport.startTLS(sslContext)
         
-    def startNLA(self, sslContext, callback = None):
-        """
-        @summary: start NLA authentication
-        @param sslContext: {ssl.ClientContextFactory | ssl.DefaultOpenSSLContextFactory} context use for TLS protocol
-        @param callback: {function} function call when cssp layer is read
-        """
-        self._callback = callback
-        self.startTLS(sslContext)
-        #send negotiate message
-        self.transport.write(encodeDERTRequest( negoTypes = [ self._authenticationProtocol.getNegotiateMessage() ] ))
-        #next state is receive a challenge
-        self.dataReceived = self.recvChallenge
-        
-    def recvChallenge(self, data):
-        """
-        @summary: second state in cssp automata
-        @param data : {str} all data available on buffer
-        """
-        request = decodeDERTRequest(data)
-        message, self._interface = self._authenticationProtocol.getAuthenticateMessage(getNegoTokens(request)[0])
-        #get back public key
-        #convert from der to ber...
-        pubKeyDer = crypto.dump_privatekey(crypto.FILETYPE_ASN1, self.transport.protocol._tlsConnection.get_peer_certificate().get_pubkey())
-        pubKey = der_decoder.decode(pubKeyDer, asn1Spec=OpenSSLRSAPublicKey())[0]
-        
-        rsa = x509.RSAPublicKey()
-        rsa.setComponentByName("modulus", univ.Integer(pubKey.getComponentByName('modulus')._value))
-        rsa.setComponentByName("publicExponent", univ.Integer(pubKey.getComponentByName('publicExponent')._value))
-        self._pubKeyBer = ber_encoder.encode(rsa)
-        
-        #send authenticate message with public key encoded
-        self.transport.write(encodeDERTRequest( negoTypes = [ message ], pubKeyAuth = self._interface.GSS_WrapEx(self._pubKeyBer)))
-        #next step is received public key incremented by one
-        self.dataReceived = self.recvPubKeyInc
-    
-    def recvPubKeyInc(self, data):
-        """
-        @summary: the server send the pubKeyBer + 1
-        @param data : {str} all data available on buffer
-        """
-        request = decodeDERTRequest(data)
-        pubKeyInc = self._interface.GSS_UnWrapEx(getPubKeyAuth(request))
-        #check pubKeyInc = self._pubKeyBer + 1
-        if not (self._pubKeyBer[1:] == pubKeyInc[1:] and ord(self._pubKeyBer[0]) + 1 == ord(pubKeyInc[0])):
-            raise error.InvalidExpectedDataException("CSSP : Invalid public key increment")
-        
-        domain, user, password = self._authenticationProtocol.getEncodedCredentials()
-        #send credentials
-        self.transport.write(encodeDERTRequest( authInfo = self._interface.GSS_WrapEx(encodeDERTCredentials(domain, user, password))))
-        #reset state back to normal state
-        self.dataReceived = lambda x: self.__class__.dataReceived(self, x)
-        if not self._callback is None:
-            self._callback()

@@ -186,7 +186,7 @@ class Client(X224Layer):
     def recvConnectionConfirm(self, data):
         """
         @summary:  Receive connection confirm message
-                    Next state is recvData 
+                    Next state is recvData
                     Call connect on presentation layer if all is good
         @param data: Stream that contain connection confirm
         @see: response -> http://msdn.microsoft.com/en-us/library/cc240506.aspx
@@ -264,29 +264,9 @@ class Server(X224Layer):
         """
         message = ClientConnectionRequestPDU()
         data.readType(message)
-        
-        if not message.protocolNeg._is_readed:
-            self._requestedProtocol = Protocols.PROTOCOL_RDP
-        else:
-            self._requestedProtocol = message.protocolNeg.selectedProtocol.value
-        
-        #match best security layer available
-        if not self._serverPrivateKeyFileName is None and not self._serverCertificateFileName is None:
-            self._selectedProtocol = self._requestedProtocol & Protocols.PROTOCOL_SSL
-        else:
-            self._selectedProtocol = self._requestedProtocol & Protocols.PROTOCOL_RDP
-        
-        #if force ssl is enable
-        if not self._selectedProtocol & Protocols.PROTOCOL_SSL and self._forceSSL:
-            log.warning("server reject client because doesn't support SSL")
-            #send error message and quit
-            message = ServerConnectionConfirm()
-            message.protocolNeg.code.value = NegociationType.TYPE_RDP_NEG_FAILURE
-            message.protocolNeg.failureCode.value = NegotiationFailureCode.SSL_REQUIRED_BY_SERVER
-            self._transport.send(message)
-            self.close()
-            return
-        
+
+        self._requestedProtocol = Protocols.PROTOCOL_HYBRID #message.protocolNeg.selectedProtocol.value
+        self._selectedProtocol = self._requestedProtocol & Protocols.PROTOCOL_HYBRID
         self.sendConnectionConfirm()
         
     def sendConnectionConfirm(self):
@@ -296,15 +276,23 @@ class Server(X224Layer):
                     Next state is recvData
         @see : http://msdn.microsoft.com/en-us/library/cc240501.aspx
         """
-        message = ServerConnectionConfirm()
+        message = ServerConnectionConfirm() # flags should be 0xf and result should be 0x8
+        message.protocolNeg.flag.value=0xf
         message.protocolNeg.code.value = NegociationType.TYPE_RDP_NEG_RSP
         message.protocolNeg.selectedProtocol.value = self._selectedProtocol
         self._transport.send(message)
         if self._selectedProtocol == Protocols.PROTOCOL_SSL:
-            log.debug("*" * 10 + " select SSL layer " + "*" * 10)
-            #_transport is TPKT and transport is TCP layer of twisted
-            self._transport.startTLS(ServerTLSContext(self._serverPrivateKeyFileName, self._serverCertificateFileName))
-            
+            log.error('error in protocol selection.SSL chosen')
+            return
+        if self._selectedProtocol== Protocols.PROTOCOL_HYBRID:
+            log.debug('hybrid chosen')
+        else:
+            log.error('selected protocol ' , self._selectedProtocol)
+
+        #_transport is TPKT and transport is TCP layer of twisted
+        ctx=(ServerTLSContext(self._serverPrivateKeyFileName, self._serverCertificateFileName))
+        self._transport.startTLS(ctx)
+
         #connection is done send to presentation
         self.setNextState(self.recvData)
         self._presentation.connect()
@@ -312,7 +300,8 @@ class Server(X224Layer):
 #open ssl needed
 from twisted.internet import ssl
 from OpenSSL import SSL
-
+SSL._lib.Cryptography_HAS_EC=False
+SSL._lib.Cryptography_HAS_ECDH=False
 class ClientTLSContext(ssl.ClientContextFactory):
     """
     @summary: client context factory for open ssl
@@ -321,6 +310,7 @@ class ClientTLSContext(ssl.ClientContextFactory):
         context = SSL.Context(SSL.TLSv1_METHOD)
         context.set_options(SSL.OP_DONT_INSERT_EMPTY_FRAGMENTS)
         context.set_options(SSL.OP_TLS_BLOCK_PADDING_BUG)
+        context.set_cipher_list("AES256-SHA")
         return context
     
 class ServerTLSContext(ssl.DefaultOpenSSLContextFactory):

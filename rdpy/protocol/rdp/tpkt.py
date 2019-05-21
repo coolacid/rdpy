@@ -101,7 +101,7 @@ class TPKT(RawLayer, IFastPathSender):
                 represent the Raw Layer in stack (first layer)
                 This layer only handle size of packet and determine if is a fast path packet
     """
-    def __init__(self, presentation):
+    def __init__(self, presentation, isClient):
         """
         @param presentation: {Layer} presentation layer, in RDP case is x224 layer
         """
@@ -112,7 +112,9 @@ class TPKT(RawLayer, IFastPathSender):
         self._fastPathListener = None
         #last secure flag
         self._secFlag = 0
-            
+        self._isClient = isClient
+
+
     def setFastPathListener(self, fastPathListener):
         """
         @param fastPathListener : {IFastPathListener}
@@ -150,12 +152,18 @@ class TPKT(RawLayer, IFastPathSender):
             self._secFlag = ((version.value >> 6) & 0x3)
             data.readType(self._lastShortLength)
             if self._lastShortLength.value & 0x80:
-                #size is 1 byte more
-                self.expect(1, self.readExtendedFastPathHeader)
+                #size is 2 byte more
+                if self._lastShortLength.value & 0xFF==0x82:
+                    self.expect(2, self.readExtendedFastPathHeader)
+                else:
+                    self.expect(1, self.readExtendedFastPathHeader)
                 return
-            self.expect(self._lastShortLength.value - 2, self.readFastPath)
-                
-        
+            if self._isClient:
+                  self.expect(self._lastShortLength.value - 2, self.readFastPath)
+            else:
+                  self.expect(self._lastShortLength.value , self.readFastPath)
+
+
     def readExtendedHeader(self, data):
         """
         @summary: Header may be on 4 bytes
@@ -171,13 +179,28 @@ class TPKT(RawLayer, IFastPathSender):
         @summary: Fast path header may be on 1 byte more
         @param data: {Stream} from twisted layer
         """
-        leftPart = UInt8()
-        data.readType(leftPart)
-        self._lastShortLength.value &= ~0x80
-        packetSize = (self._lastShortLength.value << 8) + leftPart.value
-        #next state is fast patn data
-        self.expect(packetSize - 3, self.readFastPath)
-    
+
+        if self._isClient:
+            leftPart = UInt8()
+            data.readType(leftPart)
+            self._lastShortLength.value &= ~0x80
+            packetSize = (self._lastShortLength.value << 8) + leftPart.value
+            #next state is fast patn data
+            self.expect(packetSize - 3, self.readFastPath)
+            return
+        if self._lastShortLength.value & 0xFF==0x82:
+            size = UInt16Be()
+            data.readType(size)
+            packetSize=size.value
+        else: #0x81 or other
+            leftPart = UInt8()
+            data.readType(leftPart)
+            self._lastShortLength.value &= ~0x80
+            packetSize =   leftPart.value
+
+        #next state is fast path data
+        self.expect(packetSize , self.readFastPath)
+
     def readFastPath(self, data):
         """
         @summary: Fast path data
@@ -208,7 +231,10 @@ class TPKT(RawLayer, IFastPathSender):
         @param secFlag: {integer} Security flag for fastpath packet
         """
         RawLayer.send(self, (UInt8(Action.FASTPATH_ACTION_FASTPATH | ((secFlag & 0x3) << 6)), UInt16Be((sizeof(fastPathS) + 3) | 0x8000), fastPathS))
-    
+
+    def write(self,simpletype):
+        RawLayer.send(self,simpletype)
+
     def startTLS(self, sslContext):
         """
         @summary: start TLS protocol
