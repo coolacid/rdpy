@@ -37,12 +37,11 @@ setup(name='rdpy',
 			'bin/rdpy-vncscreenshot.py'
 		],
 	install_requires=[
-		'twisted',
+			'twisted',
           	'pyopenssl',
           	'service_identity',
           	'qt4reactor',
           	'rsa',
           	'pyasn1',
-                'impacket',
 	  	],
 )

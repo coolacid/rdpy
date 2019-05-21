@@ -29,7 +29,6 @@ from rdpy.core.type import ArrayType
 import rdpy.core.log as log
 import rdpy.protocol.rdp.tpkt as tpkt
 import data, caps
-from rdpy.protocol.rdp.nla.csspSrv import CSSPSrv
 
 class PDUClientListener(object):
     """
@@ -167,7 +166,7 @@ class Client(PDULayer):
                              
     def recvDemandActivePDU(self, s):
         """
-        @summary: Receive demand active PDU which contains
+        @summary: Receive demand active PDU which contains 
         Server capabilities. In this version of RDPY only
         Restricted group of capabilities are used.
         Send Confirm Active PDU
@@ -199,7 +198,7 @@ class Client(PDULayer):
         
     def recvServerSynchronizePDU(self, s):
         """
-        @summary: Receive from server
+        @summary: Receive from server 
         Wait Control Cooperate PDU
         @param s: Stream from transport layer
         """
@@ -403,9 +402,7 @@ class Server(PDULayer):
         self._listener = listener
         #fast path layer
         self._fastPathSender = None
-
-        self._csspSrv= None
-
+        
     def connect(self):
         """
         @summary: Connect message for server automata
@@ -442,7 +439,7 @@ class Server(PDULayer):
         
     def recvClientSynchronizePDU(self, s):
         """
-        @summary: Receive from client
+        @summary: Receive from client 
         Wait Control Cooperate PDU
         @param s: Stream from transport layer
         """
@@ -533,20 +530,15 @@ class Server(PDULayer):
         elif dataPDU.shareDataHeader.pduType2.value == data.PDUType2.PDUTYPE2_SHUTDOWN_REQUEST:
             log.debug("Receive Shutdown Request")
             self._transport.close()
-    
-    def RegisterCSSP(self,transport,target):
-        if not self._csspSrv:
-            self._csspSrv= CSSPSrv(self._listener, transport,target)
-    
-    def recvFastPath(self, secflags, fastPathS):
+            
+    def recvFastPath(self, fastPathS):
         """
         @summary: Implement IFastPathListener interface
         Fast path is needed by RDP 8.0
         @param fastPathS: Stream that contain fast path data
         """
-        return self._csspSrv.recv(fastPathS,secflags)
-
-
+        pass
+        
     def sendDemandActivePDU(self):
         """
         @summary: Send server capabilities server automata PDU

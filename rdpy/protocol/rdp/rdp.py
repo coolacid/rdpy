@@ -29,7 +29,7 @@ import pdu.caps
 import rdpy.core.log as log
 import tpkt, x224, sec
 from t125 import mcs, gcc
-from nla import cssp, csspSrv, ntlm
+from nla import cssp, ntlm
 
 class SecurityLevel(object):
     """
@@ -55,24 +55,20 @@ class RDPClientController(pdu.layer.PDUClientListener):
         #transport pdu layer
         self._x224Layer = x224.Client(self._mcsLayer)
         #transport packet (protocol layer)
-        self._tpktLayer = tpkt.TPKT(self._x224Layer, 1)
+        self._tpktLayer = tpkt.TPKT(self._x224Layer)
         #fastpath stack
         self._pduLayer.initFastPath(self._secLayer)
         self._secLayer.initFastPath(self._tpktLayer)
-        self._cssp=None
         #is pdu layer is ready to send
         self._isReady = False
-        #signal all listener
-
-
+        
     def getProtocol(self):
         """
         @return: return Protocol layer for twisted
         In case of RDP TPKT is the Raw layer
         """
-        self._cssp = cssp.CSSP(self,self._tpktLayer, ntlm.NTLMv2(self._secLayer._info.domain.value, self._secLayer._info.userName.value, self._secLayer._info.password.value))
-        return self._cssp
-
+        return cssp.CSSP(self._tpktLayer, ntlm.NTLMv2(self._secLayer._info.domain.value, self._secLayer._info.userName.value, self._secLayer._info.password.value))
+    
     def getColorDepth(self):
         """
         @return: color depth set by the server (15, 16, 24)
@@ -380,8 +376,8 @@ class RDPServerController(pdu.layer.PDUServerListener):
         #transport pdu layer
         self._x224Layer = x224.Server(self._mcsLayer, privateKeyFileName, certificateFileName, False)
         #transport packet (protocol layer)
-        self._tpktLayer = tpkt.TPKT(self._x224Layer, 0)
-
+        self._tpktLayer = tpkt.TPKT(self._x224Layer)
+        
         #fastpath stack
         self._pduLayer.initFastPath(self._secLayer)
         self._secLayer.initFastPath(self._tpktLayer)
@@ -395,12 +391,12 @@ class RDPServerController(pdu.layer.PDUServerListener):
         self._pduLayer.close()
         
     def getProtocol(self):
-       """
-       @return: the twisted protocol layer
-       in RDP case is TPKT layer
-       """
-       return self._tpktLayer
-
+        """
+        @return: the twisted protocol layer
+        in RDP case is TPKT layer
+        """
+        return self._tpktLayer
+    
     def getHostname(self):
         """
         @return: name of client (information done by RDP)
@@ -594,13 +590,7 @@ class ServerFactory(layer.RawLayerServerFactory):
         self._colorDepth = colorDepth
         self._privateKeyFileName = privateKeyFileName
         self._certificateFileName = certificateFileName
-        self._controller = RDPServerController(self._colorDepth, self._privateKeyFileName, self._certificateFileName)
-        self.buildObserver(self._controller, '')
-        try:
-            self._controller._secLayer.RegisterCSSP(self._controller._tpktLayer,self._target) #using it to register tkpt , it calls client ready and starts the client
-        except AttributeError:
-            pass
-
+    
     def connectionLost(self, tpktLayer, reason):
         """
         @param reason: twisted reason
@@ -618,8 +608,10 @@ class ServerFactory(layer.RawLayerServerFactory):
         @summary: Function call from twisted and build rdp protocol stack
         @param addr: destination address
         """
-        return self._controller.getProtocol()
-
+        controller = RDPServerController(self._colorDepth, self._privateKeyFileName, self._certificateFileName)
+        self.buildObserver(controller, addr)
+        return controller.getProtocol()
+    
     def buildObserver(self, controller, addr):
         """
         @summary: Build observer use for connection
