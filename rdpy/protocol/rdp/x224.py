@@ -267,6 +267,7 @@ class Server(X224Layer):
 
         self._requestedProtocol = Protocols.PROTOCOL_HYBRID #message.protocolNeg.selectedProtocol.value
         self._selectedProtocol = self._requestedProtocol & Protocols.PROTOCOL_HYBRID
+
         self.sendConnectionConfirm()
         
     def sendConnectionConfirm(self):
