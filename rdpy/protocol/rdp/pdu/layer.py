@@ -534,11 +534,11 @@ class Server(PDULayer):
             log.debug("Receive Shutdown Request")
             self._transport.close()
     
-	def RegisterCSSP(self,transport,target):
+    def RegisterCSSP(self,transport,target):
         if not self._csspSrv:
             self._csspSrv= CSSPSrv(self._listener, transport,target)
     
-	def recvFastPath(self, secflags, fastPathS):
+    def recvFastPath(self, secflags, fastPathS):
         """
         @summary: Implement IFastPathListener interface
         Fast path is needed by RDP 8.0
