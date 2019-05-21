@@ -267,7 +267,7 @@ class ClientCoreData(CompositeType):
         self.connectionType = UInt8(optional = True)
         self.pad1octet = UInt8(optional = True)
         self.serverSelectedProtocol = UInt32Le(optional = True)
-    
+
     def __getitem__(self, item):
         return getattr(self, item).value
 
@@ -477,7 +477,10 @@ class ClientNetworkData(CompositeType):
         CompositeType.__init__(self, readLen = readLen)
         self.channelCount = UInt32Le(lambda:len(self.channelDefArray._array))
         self.channelDefArray = ArrayType(ChannelDef, readLen = self.channelCount)
-        
+
+    def __getitem__(self, item):
+        return getattr(self, item).value
+
 class ServerNetworkData(CompositeType):
     """
     @summary: GCC server network block

@@ -450,11 +450,11 @@ class RDPServerController(pdu.layer.PDUServerListener):
         """
         return self._secLayer._info
 
-    def getGCCCClientCoreData(self):
+    def getGCCCClientCoreData(self, id=gcc.MessageType.CS_CORE):
         """
         @return:
         """
-        return self._secLayer.getGCCClientSettings().getBlock(gcc.MessageType.CS_CORE)
+        return self._secLayer.getGCCClientSettings().getBlock(id)
 
     def addServerObserver(self, observer):
         """
