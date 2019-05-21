@@ -479,7 +479,10 @@ class ClientNetworkData(CompositeType):
         self.channelDefArray = ArrayType(ChannelDef, readLen = self.channelCount)
 
     def __getitem__(self, item):
-        return getattr(self, item).value
+        if item == "channelCount":
+            return getattr(self, item).value
+        else:
+            return getattr(self, item)
 
 class ServerNetworkData(CompositeType):
     """
