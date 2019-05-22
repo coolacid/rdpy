@@ -492,9 +492,8 @@ class RDPServerController(pdu.layer.PDUServerListener):
 
     def onConnected(self):
         """
-        @summary: RDP stack is now ready
+        @summary: We have a new X224 connection
         """
-        self._isReady = True
         for observer in self._serverObserver:
             observer.onConnected()
     
