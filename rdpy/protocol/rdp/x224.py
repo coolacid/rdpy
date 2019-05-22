@@ -55,6 +55,7 @@ class Protocols(object):
     PROTOCOL_RDP = 0x00000000
     PROTOCOL_SSL = 0x00000001
     PROTOCOL_HYBRID = 0x00000002
+    PROTOCOL_RDSTLS = 0x00000004
     PROTOCOL_HYBRID_EX = 0x00000008
         
 class NegotiationFailureCode(object):
@@ -290,7 +291,7 @@ class Server(X224Layer):
 
         protocols = []
         for k in filter(lambda a: not a.startswith('__'), dir(Protocols)):
-            if self._requestedProtocol & getattr(Protocols,k):
+            if self._requestedProtocol & getattr(Protocols,k) == getattr(Protocols,k):
                 protocols.append(k)
         self.controller.onConnected(protocols, self._requestedProtocol)
         self.sendConnectionConfirm()
