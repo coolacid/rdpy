@@ -236,7 +236,7 @@ class Server(X224Layer):
     """
     @summary: Server automata of X224 layer
     """
-    def __init__(self, presentation, privateKeyFileName = None, certificateFileName = None, forceSSL = False):
+    def __init__(self, presentation, controller, privateKeyFileName = None, certificateFileName = None, forceSSL = False):
         """
         @param presentation: {layer} upper layer, MCS layer in RDP case
         @param privateKeyFileName: {str} file contain server private key
@@ -244,6 +244,7 @@ class Server(X224Layer):
         @param forceSSL: {boolean} reject old client that doerasn't support SSL
         """
         X224Layer.__init__(self, presentation)
+        self.controller = controller
         #Server mode informations for TLS connection
         self._serverPrivateKeyFileName = privateKeyFileName
         self._serverCertificateFileName = certificateFileName
@@ -287,6 +288,7 @@ class Server(X224Layer):
             self.close()
             return
         
+        self.controller.onConnected()
         self.sendConnectionConfirm()
         
     def sendConnectionConfirm(self):

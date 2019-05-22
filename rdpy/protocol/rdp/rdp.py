@@ -374,7 +374,7 @@ class RDPServerController(pdu.layer.PDUServerListener):
         #multi channel service
         self._mcsLayer = mcs.Server(self._secLayer)
         #transport pdu layer
-        self._x224Layer = x224.Server(self._mcsLayer, privateKeyFileName, certificateFileName, False)
+        self._x224Layer = x224.Server(self._mcsLayer, self, privateKeyFileName, certificateFileName, False)
         #transport packet (protocol layer)
         self._tpktLayer = tpkt.TPKT(self._x224Layer)
         
@@ -489,6 +489,14 @@ class RDPServerController(pdu.layer.PDUServerListener):
         @summary: Enable key event in unicode format
         """
         self._pduLayer._serverCapabilities[pdu.caps.CapsType.CAPSTYPE_INPUT].capability.inputFlags.value |= pdu.caps.InputFlags.INPUT_FLAG_UNICODE
+
+    def onConnected(self):
+        """
+        @summary: RDP stack is now ready
+        """
+        self._isReady = True
+        for observer in self._serverObserver:
+            observer.onConnected()
     
     def onReady(self):
         """
