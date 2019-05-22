@@ -372,7 +372,7 @@ class RDPServerController(pdu.layer.PDUServerListener):
         #secure layer
         self._secLayer = sec.Server(self._pduLayer)
         #multi channel service
-        self._mcsLayer = mcs.Server(self._secLayer)
+        self._mcsLayer = mcs.Server(self._secLayer, self)
         #transport pdu layer
         self._x224Layer = x224.Server(self._mcsLayer, self, privateKeyFileName, certificateFileName, False)
         #transport packet (protocol layer)
@@ -496,6 +496,20 @@ class RDPServerController(pdu.layer.PDUServerListener):
         """
         for observer in self._serverObserver:
             observer.onConnected()
+    
+    def onCSNET(self, streams):
+        """
+        @summary: We have a new X224 connection
+        """
+        for observer in self._serverObserver:
+            observer.onCSNET(streams)
+    
+    def onUserData(self):
+        """
+        @summary: We have a new X224 connection
+        """
+        for observer in self._serverObserver:
+            observer.onUserData()
     
     def onReady(self):
         """

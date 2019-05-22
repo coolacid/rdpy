@@ -473,11 +473,12 @@ class Server(MCSLayer):
     """
     @summary: Server automata of multiple channel service layer
     """
-    def __init__(self, presentation, virtualChannels = []):
+    def __init__(self, presentation, controller, virtualChannels = []):
         """
         @param presentation: {Layer} presentation layer
         @param virtualChannels: {List(Layer)} list additional channels like rdpsnd... [tuple(mcs.ChannelDef, layer)]
         """
+        self.controller = controller
         MCSLayer.__init__(self, presentation, DomainMCSPDU.SEND_DATA_REQUEST, DomainMCSPDU.SEND_DATA_INDICATION, virtualChannels)
         #nb channel requested
         self._nbChannelConfirmed = 0
@@ -519,6 +520,7 @@ class Server(MCSLayer):
         
         if not self._clientSettings.CS_NET is None:
             i = 1
+            self.controller.onCSNET([str(a.name) for a in self._clientSettings.CS_NET.channelDefArray._array])
             for channelDef in self._clientSettings.CS_NET.channelDefArray._array:
                 self._serverSettings.SC_NET.channelIdArray._array.append(UInt16Le(i + Channel.MCS_GLOBAL_CHANNEL))
                 #if channel can be handle by serve add it
@@ -526,7 +528,7 @@ class Server(MCSLayer):
                     if channelDef.name == serverChannelDef.name:
                         self._channels[i + Channel.MCS_GLOBAL_CHANNEL] = layer
                 i += 1
-        
+#        self.controller.onUserData()
         self.sendConnectResponse()
         self.setNextState(self.recvErectDomainRequest)
         
