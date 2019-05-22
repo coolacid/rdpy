@@ -292,7 +292,7 @@ class Server(X224Layer):
         for k in filter(lambda a: not a.startswith('__'), dir(Protocols)):
             if self._requestedProtocol & getattr(Protocols,k):
                 protocols.append(k)
-        self.controller.onConnected(protocols)
+        self.controller.onConnected(protocols, self._requestedProtocol)
         self.sendConnectionConfirm()
         
     def sendConnectionConfirm(self):
