@@ -490,12 +490,12 @@ class RDPServerController(pdu.layer.PDUServerListener):
         """
         self._pduLayer._serverCapabilities[pdu.caps.CapsType.CAPSTYPE_INPUT].capability.inputFlags.value |= pdu.caps.InputFlags.INPUT_FLAG_UNICODE
 
-    def onConnected(self):
+    def onConnected(self, protocols):
         """
         @summary: We have a new X224 connection
         """
         for observer in self._serverObserver:
-            observer.onConnected()
+            observer.onConnected(protocols)
     
     def onCSNET(self, streams):
         """
