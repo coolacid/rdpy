@@ -93,7 +93,7 @@ class ServerConnectionConfirm(CompositeType):
         CompositeType.__init__(self)
         self.len = UInt8(lambda:sizeof(self) - 1)
         self.code = UInt8(MessageType.X224_TPDU_CONNECTION_CONFIRM, constant = True)
-        self.padding = (UInt16Be(), UInt16Be(), UInt8())
+        self.padding = (UInt16Be(), UInt16Be(0x124), UInt8())
         #read if there is enough data
         self.protocolNeg = Negotiation(optional = True)
         
@@ -117,7 +117,7 @@ class Negotiation(CompositeType):
     def __init__(self, optional = False):
         CompositeType.__init__(self, optional = optional)
         self.code = UInt8()
-        self.flag = UInt8(0)
+        self.flag = UInt8(0x1f)
         #always 8
         self.len = UInt16Le(0x0008, constant = True)
         self.selectedProtocol = UInt32Le(conditional = lambda: (self.code.value != NegociationType.TYPE_RDP_NEG_FAILURE))
