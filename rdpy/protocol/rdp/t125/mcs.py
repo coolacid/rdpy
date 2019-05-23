@@ -544,8 +544,11 @@ class Server(MCSLayer):
         if not self.readMCSPDUHeader(opcode.value, DomainMCSPDU.ERECT_DOMAIN_REQUEST):
             raise InvalidExpectedDataException("Invalid MCS PDU : ERECT_DOMAIN_REQUEST expected")
         
-        per.readInteger(data)
-        per.readInteger(data)
+        try:
+            per.readInteger(data)
+            per.readInteger(data)
+        except InvalidValue:
+            pass
         
         self.setNextState(self.recvAttachUserRequest)
         
