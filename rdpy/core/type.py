@@ -759,6 +759,9 @@ class String(Type, CallableValue):
         self._readLen = readLen
         self._unicode = unicode
         self._until = until
+
+    def strip(self, chars = None):
+        return self.value.strip(chars)
         
     def __cmp__(self, other):
         """

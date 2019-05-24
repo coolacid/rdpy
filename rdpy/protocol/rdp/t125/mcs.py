@@ -506,6 +506,7 @@ class Server(MCSLayer):
         Wait Erect Domain Request
         @param data: {Stream}
         """
+        self._virtualChannels.extend(self.controller.getVCs())
         ber.readApplicationTag(data, UInt8(Message.MCS_TYPE_CONNECT_INITIAL))
         ber.readOctetString(data)
         ber.readOctetString(data)
@@ -522,11 +523,13 @@ class Server(MCSLayer):
             i = 1
             self.controller.onCSNET([str(a.name) for a in self._clientSettings.CS_NET.channelDefArray._array])
             for channelDef in self._clientSettings.CS_NET.channelDefArray._array:
+                _channelDef = String(channelDef.name.strip('\x00'))
                 self._serverSettings.SC_NET.channelIdArray._array.append(UInt16Le(i + Channel.MCS_GLOBAL_CHANNEL))
                 #if channel can be handle by serve add it
                 for serverChannelDef, layer in self._virtualChannels:
-                    if channelDef.name == serverChannelDef.name:
-                        self._channels[i + Channel.MCS_GLOBAL_CHANNEL] = layer
+                    if _channelDef == serverChannelDef.name:
+                        log.info("Adding Channel: {}".format(channelDef.name))
+                        self._channels[i + Channel.MCS_GLOBAL_CHANNEL] = layer()
                 i += 1
 #        self.controller.onUserData()
         self.sendConnectResponse()
@@ -589,6 +592,7 @@ class Server(MCSLayer):
         #actually algo support virtual channel but RDPY have no virtual channel
         confirm = 0 if channelId in self._channels.keys() or channelId == self._userId else 1
         self.sendChannelJoinConfirm(channelId, confirm)
+        log.debug("Channel List: {}: {}".format(channelId, confirm))
         self._nbChannelConfirmed += 1
         if self._nbChannelConfirmed == self._serverSettings.getBlock(gcc.MessageType.SC_NET).channelCount.value + 2:
             self.allChannelConnected()

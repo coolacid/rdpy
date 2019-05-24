@@ -364,6 +364,7 @@ class RDPServerController(pdu.layer.PDUServerListener):
         @param certficiateFileName: file that contain public key
         @param colorDepth: 15, 16, 24
         """
+        self._virtualChannels = []
         self._isReady = False
         #list of observer
         self._serverObserver = []
@@ -390,6 +391,12 @@ class RDPServerController(pdu.layer.PDUServerListener):
         """
         self._pduLayer.close()
         
+    def getVCs(self):
+        return self._virtualChannels
+
+    def addVCs(self, channelDef, layer):
+        self._virtualChannels.append((channelDef, layer))
+
     def getProtocol(self):
         """
         @return: the twisted protocol layer
