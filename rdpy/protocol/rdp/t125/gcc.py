@@ -538,7 +538,7 @@ def serverSettings():
     @summary: Build settings for server
     @return Settings
     """
-    return Settings([ServerCoreData(), ServerSecurityData(), ServerNetworkData()])
+    return Settings([ServerCoreData(), ServerNetworkData(), ServerSecurityData()])
         
 def readConferenceCreateRequest(s):
     """
