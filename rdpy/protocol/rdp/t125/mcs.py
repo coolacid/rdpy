@@ -529,7 +529,7 @@ class Server(MCSLayer):
                 for serverChannelDef, layer in self._virtualChannels:
                     if _channelDef == serverChannelDef.name:
                         log.info("Adding Channel: {}".format(channelDef.name))
-                        self._channels[i + Channel.MCS_GLOBAL_CHANNEL] = layer()
+                        self._channels[i + Channel.MCS_GLOBAL_CHANNEL] = layer(self.controller)
                 i += 1
 #        self.controller.onUserData()
         self.sendConnectResponse()

@@ -497,6 +497,13 @@ class RDPServerController(pdu.layer.PDUServerListener):
         """
         self._pduLayer._serverCapabilities[pdu.caps.CapsType.CAPSTYPE_INPUT].capability.inputFlags.value |= pdu.caps.InputFlags.INPUT_FLAG_UNICODE
 
+    def onEvent(self, eventType, info):
+        """
+        @summary: Generic event data
+        """
+        for observer in self._serverObserver:
+            observer.onEvent(eventType, info)
+
     def onConnected(self, protocols, protocolsRaw):
         """
         @summary: We have a new X224 connection
