@@ -255,7 +255,7 @@ class MCSLayer(LayerAutomata):
         """
         domainParam = (ber.writeInteger(maxChannels), ber.writeInteger(maxUsers), ber.writeInteger(maxTokens),
                        ber.writeInteger(1), ber.writeInteger(0), ber.writeInteger(1),
-                       ber.writeInteger(maxPduSize), ber.writeInteger(2))
+                       ber.writeInteger(maxPduSize, 3), ber.writeInteger(2))
         return (ber.writeUniversalTag(ber.Tag.BER_TAG_SEQUENCE, True), writeLength(sizeof(domainParam)), domainParam)
     
     def writeMCSPDUHeader(self, mcsPdu, options = 0):

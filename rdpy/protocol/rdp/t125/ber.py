@@ -22,7 +22,7 @@ Basic Encoding Rules use in RDP.
 ASN.1 standard
 """
 
-from rdpy.core.type import UInt8, UInt16Be, UInt32Be, String
+from rdpy.core.type import UInt8, UInt16Be, UInt24Be, UInt32Be, String
 from rdpy.core.error import InvalidExpectedDataException, InvalidSize
 
 class BerPc(object):
@@ -205,12 +205,26 @@ def readInteger(s):
     else:
         raise InvalidExpectedDataException("Wrong integer size")
     
-def writeInteger(value):
+def writeInteger(value, length=None):
     """
     @summary: Write integer value
     @param param: INT or Python long
     @return: BER integer block 
     """
+    if length != None:
+        if length == 1:
+            _value = UInt8(value)
+        elif length == 2:
+            _value = UInt16Be(value)
+        elif length == 3:
+            _value = UInt24Be(value)
+        elif length == 4:
+            _value = UInt32Be(value)
+        else:
+            raise InvalidExpectedDataException("Unsupported Interger Size")
+
+        return (writeUniversalTag(Tag.BER_TAG_INTEGER, False), writeLength(length), _value)
+
     if value <= 0xff:
         return (writeUniversalTag(Tag.BER_TAG_INTEGER, False), writeLength(1), UInt8(value))
     elif value <= 0xffff:
