@@ -480,6 +480,7 @@ class Server(PDULayer):
             #input can be send too but ignored
             log.debug("Ignore message type %s during connection sequence"%hex(pdu.shareControlHeader.pduType.value))
             return
+        self.sendServerFinalizeSynchronizePDU()
         self.setNextState(self.recvClientFontListPDU)
         
     def recvClientFontListPDU(self, s):
@@ -497,8 +498,8 @@ class Server(PDULayer):
             log.debug("Ignore message type %s during connection sequence"%hex(pdu.shareControlHeader.pduType.value))
             return
         
+        self.sendServerFotMapPDU()
         #finalize server
-        self.sendServerFinalizeSynchronizePDU()
         self.setNextState(self.recvPDU)
         #now i'm ready
         self._listener.onReady()
@@ -573,10 +574,13 @@ class Server(PDULayer):
         self.sendDataPDU(controlRequestPDU)
         
         #TODO persistent key list http://msdn.microsoft.com/en-us/library/cc240494.aspx
+
+    def sendServerFotMapPDU(self):
         
         #deprecated font list pdu
         fontMapPDU = data.FontMapDataPDU()
         self.sendDataPDU(fontMapPDU)
+
         
     def sendPDU(self, pduMessage):
         """
