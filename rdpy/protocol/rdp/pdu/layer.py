@@ -25,7 +25,7 @@ In this layer are managed all mains bitmap update orders end user inputs
 
 from rdpy.core.layer import LayerAutomata
 from rdpy.core.error import CallPureVirtualFuntion
-from rdpy.core.type import ArrayType
+from rdpy.core.type import ArrayType, UInt16Le
 import rdpy.core.log as log
 import rdpy.protocol.rdp.tpkt as tpkt
 import data, caps
@@ -552,6 +552,10 @@ class Server(PDULayer):
         
         inputCapability = self._serverCapabilities[caps.CapsType.CAPSTYPE_INPUT].capability
         inputCapability.inputFlags.value = caps.InputFlags.INPUT_FLAG_SCANCODES | caps.InputFlags.INPUT_FLAG_MOUSEX
+
+        bitmapCapability = self._serverCapabilities[caps.CapsType.CAPSTYPE_BITMAP].capability
+        bitmapCapability.desktopWidth = UInt16Le(1024)
+        bitmapCapability.desktopHeight = UInt16Le(768)
         
         demandActivePDU = data.DemandActivePDU()
         demandActivePDU.shareId.value = self._shareId
