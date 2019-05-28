@@ -767,7 +767,7 @@ class UpdateDataPDU(CompositeType):
             """
             @summary: Create object in accordance self.updateType value
             """
-            for c in [BitmapUpdateDataPDU]:
+            for c in [OrderUpdateDataPDU, BitmapUpdateDataPDU]:
                 if self.updateType.value == c._UPDATE_TYPE_:
                     return c(readLen = CallableValue(readLen.value - 2))
             log.debug("unknown PDU update data type : %s"%hex(self.updateType.value))
@@ -807,7 +807,7 @@ class FastPathUpdatePDU(CompositeType):
             """
             @summary: Create correct object in accordance to self.updateHeader field
             """
-            for c in [FastPathBitmapUpdateDataPDU]:
+            for c in [fastPathOrderUpdateDataPDU, FastPathBitmapUpdateDataPDU]:
                 if (self.updateHeader.value & 0xf) == c._FASTPATH_UPDATE_TYPE_:
                     return c(readLen = self.size)
             log.debug("unknown Fast Path PDU update data type : %s"%hex(self.updateHeader.value & 0xf))
@@ -817,7 +817,7 @@ class FastPathUpdatePDU(CompositeType):
             updateData = FactoryType(UpdateDataFactory)
         elif not "_FASTPATH_UPDATE_TYPE_" in  updateData.__class__.__dict__:
             raise InvalidExpectedDataException("Try to send an invalid fast path data update PDU")
-            
+        
         self.updateData = updateData
   
 class BitmapUpdateDataPDU(CompositeType):
@@ -841,6 +841,8 @@ class OrderUpdateDataPDU(CompositeType):
     @see: http://msdn.microsoft.com/en-us/library/cc241571.aspx
     @todo: not implemented yet but need it
     """
+    _UPDATE_TYPE_ = UpdateType.UPDATETYPE_ORDERS
+
     def __init__(self, readLen = None):
         CompositeType.__init__(self, readLen = readLen)
         self.pad2OctetsA = UInt16Le()
@@ -895,6 +897,20 @@ class BitmapData(CompositeType):
         self.bitmapComprHdr = BitmapCompressedDataHeader(bodySize = lambda:sizeof(self.bitmapDataStream), scanWidth = lambda:self.width.value, uncompressedSize = lambda:(self.width.value * self.height.value * self.bitsPerPixel.value), conditional = lambda:((self.flags.value & BitmapFlag.BITMAP_COMPRESSION) and not (self.flags.value & BitmapFlag.NO_BITMAP_COMPRESSION_HDR)))
         self.bitmapDataStream = String(bitmapDataStream, readLen = CallableValue(lambda:(self.bitmapLength.value if (not self.flags.value & BitmapFlag.BITMAP_COMPRESSION or self.flags.value & BitmapFlag.NO_BITMAP_COMPRESSION_HDR) else self.bitmapComprHdr.cbCompMainBodySize.value)))
 
+class fastPathOrderUpdateDataPDU(CompositeType):
+    """
+    @summary: Fast path version of bitmap update PDU
+    @see: http://msdn.microsoft.com/en-us/library/dd306368.aspx
+    """
+    _FASTPATH_UPDATE_TYPE_ = FastPathUpdateType.FASTPATH_UPDATETYPE_ORDERS
+    
+    def __init__(self, readLen = None):
+        CompositeType.__init__(self, readLen = readLen)
+        self.numberOrders = UInt16Le(lambda:len(self.orders._array))
+#        self.header = UInt16Le(FastPathUpdateType.FASTPATH_UPDATETYPE_ORDERS, constant = True)
+#        self.size = UInt16Le(lambda:sizeof(self.orders))
+        self.orders = ArrayType(order.PrimaryDrawingOrder, readLen = self.numberOrders)
+    
 class FastPathBitmapUpdateDataPDU(CompositeType):
     """
     @summary: Fast path version of bitmap update PDU

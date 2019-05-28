@@ -587,6 +587,16 @@ class RDPServerController(pdu.layer.PDUServerListener):
         
         self._pduLayer.sendBitmapUpdatePDU([bitmapData])
 
+    def sendMemBltOrder(self):
+        """
+        @summary: Send an order update
+        """
+        if not self._isReady:
+            return
+        memBltOrderData = pdu.order.MemBltOrder(0x0)
+        orderData = pdu.order.PrimaryDrawingOrder(memBltOrderData)
+        self._pduLayer.sendOrderUpdateDataPDU([orderData])
+
 class ClientFactory(layer.RawLayerClientFactory):
     """
     @summary: Factory of Client RDP protocol

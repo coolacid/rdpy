@@ -23,7 +23,7 @@ GDI order structure
 
 from rdpy.core import log
 from rdpy.core.error import InvalidExpectedDataException
-from rdpy.core.type import CompositeType, UInt8, String, FactoryType, SInt8, SInt16Le
+from rdpy.core.type import CompositeType, UInt8, String, FactoryType, SInt8, SInt16Le, UInt16Le
 
 class ControlFlag(object):
     """
@@ -95,7 +95,7 @@ class PrimaryDrawingOrder(CompositeType):
             """
             Closure for capability factory
             """
-            for c in [DstBltOrder]:
+            for c in [DstBltOrder, MemBltOrder]:
                 if self.orderType.value == c._ORDER_TYPE_:
                     return c(self.controlFlags)
             log.debug("unknown Order type : %s"%hex(self.orderType.value))
@@ -105,7 +105,11 @@ class PrimaryDrawingOrder(CompositeType):
         if order is None:
             order = FactoryType(OrderFactory)
         elif not "_ORDER_TYPE_" in order.__class__.__dict__:
+            log.debug(order.__class__.__dict__)
             raise InvalidExpectedDataException("Try to send an invalid order block")
+        else:
+            self.controlFlags = UInt8(ControlFlag.TS_STANDARD | ControlFlag.TS_TYPE_CHANGE)
+            self.orderType = UInt8(order._ORDER_TYPE_)
 
 class DstBltOrder(CompositeType):
     """
@@ -114,7 +118,7 @@ class DstBltOrder(CompositeType):
     @see: http://msdn.microsoft.com/en-us/library/cc241587.aspx
     """
     #order type
-    _ORDER_TYPE_ = 0x00
+    _ORDER_TYPE_ = OrderType.TS_ENC_DSTBLT_ORDER
     #negotiation index
     _NEGOTIATE_ = 0x00
     
@@ -127,3 +131,28 @@ class DstBltOrder(CompositeType):
         self.nWidth = CoordField(lambda:not controlFlag.value & ControlFlag.TS_DELTA_COORDINATES == 0)
         self.nHeight = CoordField(lambda:not controlFlag.value & ControlFlag.TS_DELTA_COORDINATES == 0)
         self.bRop = CoordField(lambda:not controlFlag.value & ControlFlag.TS_DELTA_COORDINATES == 0)
+
+class MemBltOrder(CompositeType):
+    """
+    @summary: The MemBlt Primary Drawing Order is used to render a 
+                bitmap stored in the bitmap cache or offscreen bitmap cache to the screen.
+    @see: https://docs.microsoft.com/en-us/openspecs/windows_protocols/ms-rdpegdi/84c2ec2f-f776-405b-9b48-6894a28b1b14
+    """
+    #order type
+    _ORDER_TYPE_ = OrderType.TS_ENC_MEMBLT_ORDER
+    #negotiation index
+    _NEGOTIATE_ = 0x00
+    
+    def __init__(self, controlFlag):
+        CompositeType.__init__(self)
+        #only one field
+        self.fieldFlag = UInt8(conditional = lambda:(controlFlag.value & ControlFlag.TS_ZERO_FIELD_BYTE_BIT0 == 0 and controlFlag.value & ControlFlag.TS_ZERO_FIELD_BYTE_BIT1 == 0))
+        self.cacheId = UInt16Le()
+        self.nLeftRect = CoordField(lambda:not controlFlag.value & ControlFlag.TS_DELTA_COORDINATES == 0)
+        self.nTopRect = CoordField(lambda:not controlFlag.value & ControlFlag.TS_DELTA_COORDINATES == 0)
+        self.nWidth = CoordField(lambda:not controlFlag.value & ControlFlag.TS_DELTA_COORDINATES == 0)
+        self.nHeight = CoordField(lambda:not controlFlag.value & ControlFlag.TS_DELTA_COORDINATES == 0)
+        self.bRop = CoordField(lambda:not controlFlag.value & ControlFlag.TS_DELTA_COORDINATES == 0)
+        self.nXSrc = CoordField(lambda:not controlFlag.value & ControlFlag.TS_DELTA_COORDINATES == 0)
+        self.nYSrc = CoordField(lambda:not controlFlag.value & ControlFlag.TS_DELTA_COORDINATES == 0)
+        self.cacheIndex = UInt16Le()

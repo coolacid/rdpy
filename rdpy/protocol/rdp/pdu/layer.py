@@ -618,3 +618,20 @@ class Server(PDULayer):
             updateDataPDU = data.BitmapUpdateDataPDU()
             updateDataPDU.rectangles._array = bitmapDatas
             self.sendDataPDU(data.UpdateDataPDU(updateDataPDU))
+
+    def sendOrderUpdateDataPDU(self, orderUpdate):
+        """
+        @ summary: Send Order Update Data PDU
+        """
+        if self._clientFastPathSupported and not self._fastPathSender is None:
+            #fast path case
+            log.info("Sending fastpath order")
+            fastPathOrderUpdateDataPDU = data.fastPathOrderUpdateDataPDU()
+            fastPathOrderUpdateDataPDU.orders._array = orderUpdate
+            self._fastPathSender.sendFastPath(0, data.FastPathUpdatePDU(fastPathOrderUpdateDataPDU))
+        else:
+            #slow path case
+            log.info("Sending slowpath order")
+            orderUpdateDataPDU = data.OrderUpdateDataPDU()
+            orderUpdateDataPDU.orderData._array = orderUpdate
+            self.sendDataPDU(data.UpdateDataPDU(orderUpdateDataPDU))

@@ -57,7 +57,6 @@ class Channel:
     """
     @summary: Channel id of main channels use in RDP
     """
-    MCS_RDPDR_CHANNEL = 1004
     MCS_GLOBAL_CHANNEL = 1003
     MCS_USERCHANNEL_BASE = 1001
     
@@ -122,11 +121,11 @@ class MCSLayer(LayerAutomata):
             """
             self._mcs.send(self._channelId, data)
             
-        def close(self):
+        def close(self, padding=6):
             """
             @summary: Close wrapped layer
             """
-            self._mcs.close()
+            self._mcs.close(padding)
             
         def getUserId(self):
             """
@@ -178,12 +177,12 @@ class MCSLayer(LayerAutomata):
         #receive opcode
         self._receiveOpcode = receiveOpcode
         
-    def close(self):
+    def close(self, padding=6):
         """
         @summary: Send disconnect provider ultimatum
         """
         self._transport.send((UInt8(self.writeMCSPDUHeader(DomainMCSPDU.DISCONNECT_PROVIDER_ULTIMATUM, 1)),
-                              per.writeEnumerates(0x80), String("\x00" * 6)))
+                              per.writeEnumerates(0x80), String("\x00" * padding)))
         self._transport.close()
         
     def allChannelConnected(self):
@@ -528,8 +527,8 @@ class Server(MCSLayer):
                 #if channel can be handle by serve add it
                 for serverChannelDef, layer in self._virtualChannels:
                     if _channelDef == serverChannelDef.name:
-                        log.info("Adding Channel: {}".format(channelDef.name))
-                        self._channels[i + Channel.MCS_GLOBAL_CHANNEL] = layer(self.controller)
+                        log.info("Adding Channel: {} in slot: {}".format(channelDef.name, i + Channel.MCS_GLOBAL_CHANNEL))
+                        self._channels[i + Channel.MCS_GLOBAL_CHANNEL] = layer(self.controller, i + Channel.MCS_GLOBAL_CHANNEL)
                         break
                 i += 1
 #        self.controller.onUserData()
