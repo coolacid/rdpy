@@ -22,7 +22,7 @@ Use to manage RDP stack in twisted
 """
 
 from rdpy.core import layer
-from rdpy.core.type import String
+from rdpy.core.type import String, UInt8
 from rdpy.core.error import CallPureVirtualFuntion, InvalidValue
 import pdu.layer
 import pdu.data
@@ -594,7 +594,7 @@ class RDPServerController(pdu.layer.PDUServerListener):
         """
         if not self._isReady:
             return
-        memBltOrderData = pdu.order.MemBltOrder(0x0)
+        memBltOrderData = pdu.order.MemBltOrder(UInt8(0x0))
         orderData = pdu.order.PrimaryDrawingOrder(memBltOrderData)
         self._pduLayer.sendOrderUpdateDataPDU([orderData])
 

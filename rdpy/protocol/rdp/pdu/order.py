@@ -122,6 +122,7 @@ class PrimaryDrawingOrder(CompositeType):
         else:
             self.controlFlags = UInt8(ControlFlag.TS_STANDARD | ControlFlag.TS_TYPE_CHANGE | order._ZERO_FIELD_BYTE_BIT0_ | order._ZERO_FIELD_BYTE_BIT1_ )
             self.orderType = UInt8(order._ORDER_TYPE_)
+            self.order = order
 
 class SecondaryDrawingOrder(CompositeType):
     """
@@ -214,7 +215,6 @@ class MemBltOrder(CompositeType):
         self.nYSrc = CoordField(lambda:not controlFlag.value & ControlFlag.TS_DELTA_COORDINATES == 0)
         self.cacheIndex = UInt16Le()
 
-
 class CacheBitmapOrder(CompositeType):
     """
     @ summary: The Cache Bitmap secondary order Revision 1
@@ -248,6 +248,34 @@ class CacheBitmapOrder(CompositeType):
             self.bitmapComprHdr = String(bitmapComprHdr)
         self.bitmapDataStream = String(bitmapDataStream)
 
+class CacheBitmap2Order(CompositeType):
+    """
+    @ summary: The Cache Bitmap secondary order Revision 1
+    @ see: https://docs.microsoft.com/en-us/openspecs/windows_protocols/ms-rdpegdi/c9365b32-0be5-47c9-af1a-feba2ea1ee9f
+    """
+    # Extra Flags
+    _EXTRA_FLAGS_ = 0x00
+
+    # Order Type
+    _ORDER_TYPE_ = SecOrderType.TS_CACHE_BITMAP_UNCOMPRESSED_REV2
+
+    def __init__(self, cacheId = 0, bitmapWidth = 32, bitmapHeight = 32, bitmapBitsPerPel = 24, cacheIndex = 0, bitmapDataStream = "", compressed = False, bitmapComprHdr = ""):
+        CompositeType.__init__(self)
+        if not compressed:
+            self._ORDER_TYPE_ = SecOrderType.TS_CACHE_BITMAP_UNCOMPRESSED_REV2
+            self._EXTRA_FLAGS_ = 0x08  # If We are uncompressed we can skip the bitmapComprHdr field
+        else:
+            self._ORDER_TYPE_ = SecOrderType.TS_CACHE_BITMAP_COMPRESSED_REV2
+            if sizeof(bitmapComprHdr) == 0:
+                self._EXTRA_FLAGS_ = 0x08 # If we don't have a ComprHdr, we can skip the bitmapComprHdr
+
+        self.bitmapWidth = UInt16Le()
+        self.bitmapHeight = UInt16Le()
+        
+        if self._EXTRA_FLAGS_ & 0x08 == 0:
+            self.bitmapComprHdr = String(bitmapComprHdr)
+        self.bitmapDataStream = String(bitmapDataStream)
+
 class CacheColorTableOrder(CompositeType):
     # Extra Flags
     _EXTRA_FLAGS_ = 0x00
@@ -260,4 +288,3 @@ class CacheColorTableOrder(CompositeType):
         self.cacheId = UInt8(cacheId)
         self.numberColors = UInt16Le(lambda:len(self.colorTable._array))
         self.colorTable = ArrayType(data.ColorQuad, init = colors, readLen = self.numberColors)
-        log.error(self.colorTable._array)
