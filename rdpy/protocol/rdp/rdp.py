@@ -22,6 +22,7 @@ Use to manage RDP stack in twisted
 """
 
 from rdpy.core import layer
+from rdpy.core.type import String
 from rdpy.core.error import CallPureVirtualFuntion, InvalidValue
 import pdu.layer
 import pdu.data
@@ -595,6 +596,26 @@ class RDPServerController(pdu.layer.PDUServerListener):
             return
         memBltOrderData = pdu.order.MemBltOrder(0x0)
         orderData = pdu.order.PrimaryDrawingOrder(memBltOrderData)
+        self._pduLayer.sendOrderUpdateDataPDU([orderData])
+
+    def sendCacheBitmapOrder(self, cacheId = 0, bitmapWidth = 32, bitmapHeight = 32, bitmapBitsPerPel = 24, cacheIndex = 0, bitmapDataStream = "", compressed = False, bitmapComprHdr = ""):
+        """
+        @summary: Send an order update
+        """
+        if not self._isReady:
+            return
+        cacheBitmapOrderData = pdu.order.CacheBitmapOrder(cacheId, bitmapWidth, bitmapHeight, bitmapBitsPerPel, cacheIndex, bitmapDataStream, compressed, bitmapComprHdr)
+        orderData = pdu.order.SecondaryDrawingOrder(cacheBitmapOrderData)
+        self._pduLayer.sendOrderUpdateDataPDU([orderData])
+
+    def sendCacheColorTableOrder(self, colors = [], cacheId = 0):
+        """
+        @summary: Send an order update
+        """
+        if not self._isReady:
+            return
+        cacheColorTableOrderData = pdu.order.CacheColorTableOrder(colors = colors, cacheId = cacheId)
+        orderData = pdu.order.SecondaryDrawingOrder(cacheColorTableOrderData)
         self._pduLayer.sendOrderUpdateDataPDU([orderData])
 
 class ClientFactory(layer.RawLayerClientFactory):

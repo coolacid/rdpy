@@ -843,12 +843,12 @@ class OrderUpdateDataPDU(CompositeType):
     """
     _UPDATE_TYPE_ = UpdateType.UPDATETYPE_ORDERS
 
-    def __init__(self, readLen = None):
+    def __init__(self, orderType = order.PrimaryDrawingOrder, readLen = None):
         CompositeType.__init__(self, readLen = readLen)
         self.pad2OctetsA = UInt16Le()
         self.numberOrders = UInt16Le(lambda:len(self.orderData._array))
         self.pad2OctetsB = UInt16Le()
-        self.orderData = ArrayType(order.PrimaryDrawingOrder, readLen = self.numberOrders)
+        self.orderData = ArrayType(orderType, readLen = self.numberOrders)
 
 class BitmapCompressedDataHeader(CompositeType):
     """
@@ -904,12 +904,12 @@ class fastPathOrderUpdateDataPDU(CompositeType):
     """
     _FASTPATH_UPDATE_TYPE_ = FastPathUpdateType.FASTPATH_UPDATETYPE_ORDERS
     
-    def __init__(self, readLen = None):
+    def __init__(self, orderType = order.PrimaryDrawingOrder, readLen = None):
         CompositeType.__init__(self, readLen = readLen)
         self.numberOrders = UInt16Le(lambda:len(self.orders._array))
 #        self.header = UInt16Le(FastPathUpdateType.FASTPATH_UPDATETYPE_ORDERS, constant = True)
 #        self.size = UInt16Le(lambda:sizeof(self.orders))
-        self.orders = ArrayType(order.PrimaryDrawingOrder, readLen = self.numberOrders)
+        self.orders = ArrayType(orderType, readLen = self.numberOrders)
     
 class FastPathBitmapUpdateDataPDU(CompositeType):
     """
@@ -1010,3 +1010,11 @@ class UnicodeKeyEvent(CompositeType):
         self.keyboardFlags = UInt16Le()
         self.unicode = UInt16Le()
         self.pad2Octets = UInt16Le()
+
+class ColorQuad(CompositeType):
+    def __init__(self, blue = 0x00, green = 0x00, red = 0x00):
+        CompositeType.__init__(self)
+        self.blue = UInt8(blue)
+        self.green = UInt8(green)
+        self.red = UInt8(red)
+        self.pad = UInt8()

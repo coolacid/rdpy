@@ -23,7 +23,8 @@ GDI order structure
 
 from rdpy.core import log
 from rdpy.core.error import InvalidExpectedDataException
-from rdpy.core.type import CompositeType, UInt8, String, FactoryType, SInt8, SInt16Le, UInt16Le
+from rdpy.core.type import CompositeType, UInt8, String, FactoryType, SInt8, SInt16Le, UInt16Le, sizeof, ArrayType
+import data
 
 class ControlFlag(object):
     """
@@ -66,6 +67,17 @@ class OrderType(object):
     TS_ENC_ELLIPSE_SC_ORDER = 0x19
     TS_ENC_ELLIPSE_CB_ORDER = 0x1A
     TS_ENC_INDEX_ORDER = 0x1B
+
+class SecOrderType(object):
+    TS_CACHE_BITMAP_UNCOMPRESSED = 0x00
+    TS_CACHE_COLOR_TABLE = 0x01
+    TS_CACHE_BITMAP_COMPRESSED = 0x02
+    TS_CACHE_GLYPH = 0x03
+    TS_CACHE_BITMAP_UNCOMPRESSED_REV2 = 0x04
+    TS_CACHE_BITMAP_COMPRESSED_REV2 = 0x05
+    TS_CACHE_BRUSH = 0x07
+    TS_CACHE_BITMAP_COMPRESSED_REV3 = 0x08
+
     
 class CoordField(CompositeType):
     """
@@ -108,8 +120,43 @@ class PrimaryDrawingOrder(CompositeType):
             log.debug(order.__class__.__dict__)
             raise InvalidExpectedDataException("Try to send an invalid order block")
         else:
-            self.controlFlags = UInt8(ControlFlag.TS_STANDARD | ControlFlag.TS_TYPE_CHANGE)
+            self.controlFlags = UInt8(ControlFlag.TS_STANDARD | ControlFlag.TS_TYPE_CHANGE | order._ZERO_FIELD_BYTE_BIT0_ | order._ZERO_FIELD_BYTE_BIT1_ )
             self.orderType = UInt8(order._ORDER_TYPE_)
+
+class SecondaryDrawingOrder(CompositeType):
+    """
+    @summary: GDI Secondary drawing order
+    @see: http://msdn.microsoft.com/en-us/library/cc241586.aspx
+    """
+    def __init__(self, order = None):
+        CompositeType.__init__(self)
+        self.controlFlags = UInt8()
+        self.orderLength = SInt16Le(lambda:sizeof(self.order) + 6 - 13) # Length of order + header bytes - 13
+        self.extraFlags = UInt16Le()
+        self.orderType = UInt8()
+        
+        def OrderFactory():
+            """
+            Closure for capability factory
+            """
+            for c in [CacheBitmapOrder]:
+                if self.orderType.value == c._ORDER_TYPE_:
+                    return c(self.controlFlags)
+            log.debug("unknown Order type : %s"%hex(self.orderType.value))
+            #read entire packet
+            return String()
+        
+        if order is None:
+            order = FactoryType(OrderFactory)
+        elif not "_ORDER_TYPE_" in order.__class__.__dict__:
+            log.debug(order.__class__.__dict__)
+            raise InvalidExpectedDataException("Try to send an invalid order block")
+        else:
+            self.controlFlags = UInt8(ControlFlag.TS_STANDARD | ControlFlag.TS_SECONDARY | ControlFlag.TS_TYPE_CHANGE )
+            self.extraFlags = UInt16Le(order._EXTRA_FLAGS_)
+            self.orderType = UInt8(order._ORDER_TYPE_)
+            self.order = order
+
 
 class DstBltOrder(CompositeType):
     """
@@ -117,7 +164,10 @@ class DstBltOrder(CompositeType):
                 a rectangle by using a destination-only raster operation.
     @see: http://msdn.microsoft.com/en-us/library/cc241587.aspx
     """
-    #order type
+    # Zero Field Bytes for the Control Flags
+    _ZERO_FIELD_BYTE_BIT0_ = 0x0
+    _ZERO_FIELD_BYTE_BIT1_ = 0x0
+    # Order type
     _ORDER_TYPE_ = OrderType.TS_ENC_DSTBLT_ORDER
     #negotiation index
     _NEGOTIATE_ = 0x00
@@ -138,15 +188,22 @@ class MemBltOrder(CompositeType):
                 bitmap stored in the bitmap cache or offscreen bitmap cache to the screen.
     @see: https://docs.microsoft.com/en-us/openspecs/windows_protocols/ms-rdpegdi/84c2ec2f-f776-405b-9b48-6894a28b1b14
     """
-    #order type
+    # Zero Field Bytes for the Control Flags
+    _ZERO_FIELD_BYTE_BIT0_ = 0x40 # Normally 0x40
+
+    # MemBltOrder is a 2 Byte field Flag, this should always be 0
+    _ZERO_FIELD_BYTE_BIT1_ = 0x00 # Normally 0x80
+
+    # order type
     _ORDER_TYPE_ = OrderType.TS_ENC_MEMBLT_ORDER
-    #negotiation index
+
+    # negotiation index
     _NEGOTIATE_ = 0x00
     
     def __init__(self, controlFlag):
         CompositeType.__init__(self)
         #only one field
-        self.fieldFlag = UInt8(conditional = lambda:(controlFlag.value & ControlFlag.TS_ZERO_FIELD_BYTE_BIT0 == 0 and controlFlag.value & ControlFlag.TS_ZERO_FIELD_BYTE_BIT1 == 0))
+        self.fieldFlag = UInt8(0x0)
         self.cacheId = UInt16Le()
         self.nLeftRect = CoordField(lambda:not controlFlag.value & ControlFlag.TS_DELTA_COORDINATES == 0)
         self.nTopRect = CoordField(lambda:not controlFlag.value & ControlFlag.TS_DELTA_COORDINATES == 0)
@@ -156,3 +213,51 @@ class MemBltOrder(CompositeType):
         self.nXSrc = CoordField(lambda:not controlFlag.value & ControlFlag.TS_DELTA_COORDINATES == 0)
         self.nYSrc = CoordField(lambda:not controlFlag.value & ControlFlag.TS_DELTA_COORDINATES == 0)
         self.cacheIndex = UInt16Le()
+
+
+class CacheBitmapOrder(CompositeType):
+    """
+    @ summary: The Cache Bitmap secondary order Revision 1
+    @ see: https://docs.microsoft.com/en-us/openspecs/windows_protocols/ms-rdpegdi/c9365b32-0be5-47c9-af1a-feba2ea1ee9f
+    """
+    # Extra Flags
+    _EXTRA_FLAGS_ = 0x00
+
+    # Order Type
+    _ORDER_TYPE_ = SecOrderType.TS_CACHE_BITMAP_UNCOMPRESSED
+
+    def __init__(self, cacheId = 0, bitmapWidth = 32, bitmapHeight = 32, bitmapBitsPerPel = 24, cacheIndex = 0, bitmapDataStream = "", compressed = False, bitmapComprHdr = ""):
+        CompositeType.__init__(self)
+        if not compressed:
+            self._ORDER_TYPE_ = SecOrderType.TS_CACHE_BITMAP_UNCOMPRESSED
+            self._EXTRA_FLAGS_ = 0x0400  # If We are uncompressed we can skip the bitmapComprHdr field
+        else:
+            self._ORDER_TYPE_ = SecOrderType.TS_CACHE_BITMAP_COMPRESSED
+            if sizeof(bitmapComprHdr) == 0:
+                self._EXTRA_FLAGS_ = 0x0400 # If we don't have a ComprHdr, we can skip the bitmapComprHdr
+
+        self.cacheId = UInt8(cacheId)
+        self.pad1Octet = UInt8()
+        self.bitmapWidth = UInt8(bitmapWidth)
+        self.bitmapHeight = UInt8(bitmapHeight)
+        self.bitmapBitsPerPel = UInt8(bitmapBitsPerPel)
+        self.bitmapLength = UInt16Le(lambda:sizeof(self.bitmapComprHdr) + sizeof(self.bitmapDataStream))
+        self.bitmapLength = UInt16Le(0x00)
+        self.cacheIndex = UInt16Le(cacheIndex)
+        if self._EXTRA_FLAGS_ == 0x00:
+            self.bitmapComprHdr = String(bitmapComprHdr)
+        self.bitmapDataStream = String(bitmapDataStream)
+
+class CacheColorTableOrder(CompositeType):
+    # Extra Flags
+    _EXTRA_FLAGS_ = 0x00
+    
+    # Order Type
+    _ORDER_TYPE_ = SecOrderType.TS_CACHE_COLOR_TABLE
+
+    def __init__(self, colors = [], cacheId = 0):
+        CompositeType.__init__(self)
+        self.cacheId = UInt8(cacheId)
+        self.numberColors = UInt16Le(lambda:len(self.colorTable._array))
+        self.colorTable = ArrayType(data.ColorQuad, init = colors, readLen = self.numberColors)
+        log.error(self.colorTable._array)
