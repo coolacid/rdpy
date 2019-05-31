@@ -898,6 +898,14 @@ class Stream(StringIO):
             return
 
         value.read(self)
+
+    def rollBack(self, value):
+        """
+        @summary: rollback based on size of value
+        @param value: (tuple | Type) object
+        """
+        self.pos -= sizeof(value)
+
         
     def readNextType(self, t):
         """

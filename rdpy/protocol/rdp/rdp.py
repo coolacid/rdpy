@@ -498,12 +498,12 @@ class RDPServerController(pdu.layer.PDUServerListener):
         """
         self._pduLayer._serverCapabilities[pdu.caps.CapsType.CAPSTYPE_INPUT].capability.inputFlags.value |= pdu.caps.InputFlags.INPUT_FLAG_UNICODE
 
-    def onEvent(self, eventType, info):
+    def onEvent(self, eventType, info, **kwargs):
         """
         @summary: Generic event data
         """
         for observer in self._serverObserver:
-            observer.onEvent(eventType, info)
+            observer.onEvent(eventType, info, **kwargs)
 
     def onConnected(self, protocols, protocolsRaw):
         """

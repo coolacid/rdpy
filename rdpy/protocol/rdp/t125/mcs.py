@@ -225,22 +225,25 @@ class MCSLayer(LayerAutomata):
         
         #client case
         elif not self.readMCSPDUHeader(opcode.value, self._receiveOpcode):
-            raise InvalidExpectedDataException("Invalid expected MCS opcode receive data")
+            raise InvalidExpectedDataException("Invalid expected MCS opcode receive data, got {}".format(opcode.value))
         
         #server user id
-        per.readInteger16(data, Channel.MCS_USERCHANNEL_BASE)
+        user = per.readInteger16(data, Channel.MCS_USERCHANNEL_BASE)
         
         channelId = per.readInteger16(data)
         
-        per.readEnumerates(data)       
-        per.readLength(data)
+        enum = per.readEnumerates(data)       
+        length = per.readLength(data)
         
         #channel id doesn't match a requested layer
         if not self._channels.has_key(channelId):
             log.error("receive data for an unconnected layer: %s" % channelId)
             return
 
-        self._channels[channelId].recv(data) 
+        if "_EXTRA_" in self._channels[channelId].__dict__:
+            self._channels[channelId].recv(data, user, channelId, enum, length) 
+        else:
+            self._channels[channelId].recv(data) 
     
     def writeDomainParams(self, maxChannels, maxUsers, maxTokens, maxPduSize):
         """
@@ -581,12 +584,19 @@ class Server(MCSLayer):
         opcode = UInt8()
         data.readType(opcode)
         
+        if self.readMCSPDUHeader(opcode.value, DomainMCSPDU.SEND_DATA_REQUEST):
+            log.error("Invalid MCS PDU: Started sending data without joining all channels")
+            self.allChannelConnected()
+            data.rollBack(opcode)
+            self.recvData(data)
+            return
+
         if not self.readMCSPDUHeader(opcode.value, DomainMCSPDU.CHANNEL_JOIN_REQUEST):
-            raise InvalidExpectedDataException("Invalid MCS PDU : CHANNEL_JOIN_REQUEST expected")
+            raise InvalidExpectedDataException("Invalid MCS PDU : CHANNEL_JOIN_REQUEST expected, got {}".format(opcode.value))
         
         userId = per.readInteger16(data, Channel.MCS_USERCHANNEL_BASE)
-        if self._userId != userId:
-            raise InvalidExpectedDataException("Invalid MCS User Id")
+#        if self._userId != userId:
+#            raise InvalidExpectedDataException("Invalid MCS User Id")
         
         channelId = per.readInteger16(data)
         #actually algo support virtual channel but RDPY have no virtual channel
